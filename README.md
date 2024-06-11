@@ -8,7 +8,7 @@ In this example, you will see:
 
 * **Unit of Work**, which has its own copy of the mapper registry and tracks affected models.
 * **A fake data mapper implementation** to show when it is called.
-* **A dataclass used as an anemic domain model**.
+* **Dataclasses used as anemic domain models**.
 * **An example of some business logic and a database gateway for it**.
 
 ### Detailed Description
@@ -22,10 +22,10 @@ In this example, you will see:
     - A fake implementation of the DataMapperProtocol interface that shows when insert, update, and delete methods are called. This allows us to see how the Unit of Work interacts with the mappers.
     - The data mapper is responsible for transferring data between the application and the database. It abstracts the database interactions from the rest of the application.
 
-3. **Anemic Domain Model**:
-    - Using dataclass to define the user model (User). This model represents the domain entity and contains the data and methods to manage its state, such as adding and removing posts.
-    - The model itself is "anemic" because it lacks business logic, which is instead managed by services or use cases.
+3. **Anemic Domain Models**:
+    - Using dataclasses to define the domain models (Post and Comment). These models represent the domain entities and contain the data and methods to manage their state.
+    - The models themselves are "anemic" because they lack business logic, which is instead managed by services or use cases.
 
 4. **Business Logic and Database Gateway**:
-    - An example of business logic that includes creating, saving, and deleting users. This logic is encapsulated in a service or a gateway, which coordinates operations between the domain models and the data mappers.
-    - A database gateway that uses the Unit of Work and data mapper to perform operations on users. The gateway provides an interface for the application to interact with the database in a transactional way.
+    - An example of business logic that includes creating, saving, and deleting posts and comments. This logic is encapsulated in a service or a gateway, which coordinates operations between the domain models and the data mappers.
+    - A database gateway that uses the Unit of Work and data mapper to perform operations on posts and comments. The gateway provides an interface for the application to interact with the database in a transactional way.

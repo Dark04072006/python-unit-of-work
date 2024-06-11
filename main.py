@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import List
 
 from uow.protocols.unit_of_work import UnitOfWorkProtocol
 from uow.unit_of_work import UnitOfWork
@@ -7,86 +8,126 @@ from uow.map_registry import MappersRegistry
 
 
 @dataclass
-class User:
+class Comment:
     id: int
-    name: str
-    posts: list[str] = field(default_factory=list)
-
-    def add_post(self, post: str) -> None:
-        self.posts.append(post)
-
-    def remove_post(self, post: str) -> None:
-        self.posts.remove(post)
+    text: str
+    post_id: int
 
     def __hash__(self) -> int:
         return self.id
 
 
-class UserMapper(DataMapperProtocol[User]):
-    def insert(self, _entity: User) -> None:
-        print(f"Inserting user {_entity}")
+@dataclass
+class Post:
+    id: int
+    title: str
+    comments: List[Comment] = field(default_factory=list)
 
-    def update(self, _entity: User) -> None:
-        print(f"Updating user {_entity}")
+    def add_comment(self, comment: Comment) -> None:
+        self.comments.append(comment)
 
-    def delete(self, _entity: User) -> None:
-        print(f"Deleting user {_entity}")
+    def remove_comment(self, comment: Comment) -> None:
+        self.comments.remove(comment)
 
-    def find_by_id(self, user_id: int) -> User:
-        # This should return a user object from the database
-        # Here we are just mocking this part for simplicity
-        print(f"Fetching user with id {user_id}")
-        return User(id=user_id, name="Mocked User")
+    def __hash__(self) -> int:
+        return self.id
 
 
-class UserGateway:
-    def __init__(self, uow: UnitOfWorkProtocol, mapper: UserMapper) -> None:
+class PostMapper(DataMapperProtocol[Post]):
+    def insert(self, entity: Post) -> None:
+        print(f"Inserting post {entity}")
+
+    def update(self, entity: Post) -> None:
+        print(f"Updating post {entity}")
+
+    def delete(self, entity: Post) -> None:
+        print(f"Deleting post {entity}")
+
+    def find_by_id(self, post_id: int) -> Post:
+        print(f"Fetching post with id {post_id}")
+        return Post(id=post_id, title="Mocked Post")
+
+
+class CommentMapper(DataMapperProtocol[Comment]):
+    def insert(self, entity: Comment) -> None:
+        print(f"Inserting comment {entity}")
+
+    def update(self, entity: Comment) -> None:
+        print(f"Updating comment {entity}")
+
+    def delete(self, entity: Comment) -> None:
+        print(f"Deleting comment {entity}")
+
+    def find_by_id(self, comment_id: int) -> Comment:
+        print(f"Fetching comment with id {comment_id}")
+        return Comment(id=comment_id, text="Mocked Comment", post_id=1)
+
+
+class PostGateway:
+    def __init__(
+        self,
+        uow: UnitOfWorkProtocol,
+        post_mapper: PostMapper,
+        comment_mapper: CommentMapper,
+    ) -> None:
         self._uow = uow
-        self._mapper = mapper
+        self._post_mapper = post_mapper
+        self._comment_mapper = comment_mapper
 
-    def get_user(self, user_id: int) -> User:
-        user = self._mapper.find_by_id(user_id)
-        return user
+    def get_post(self, post_id: int) -> Post:
+        return self._post_mapper.find_by_id(post_id)
 
-    def save_user(self, user: User) -> None:
-        if self._is_new_user(user):
-            self._uow.register_new(user)
+    def save_post(self, post: Post) -> None:
+        if self._is_new_post(post):
+            self._uow.register_new(post)
         else:
-            self._uow.register_dirty(user)
+            self._uow.register_dirty(post)
+        for comment in post.comments:
+            if self._is_new_comment(comment):
+                self._uow.register_new(comment)
+            else:
+                self._uow.register_dirty(comment)
 
-    def delete_user(self, user: User) -> None:
-        self._uow.register_removed(user)
+    def delete_post(self, post: Post) -> None:
+        self._uow.register_removed(post)
+        for comment in post.comments:
+            self._uow.register_removed(comment)
 
-    def _is_new_user(self, user: User) -> bool:
-        # This should check if the user exists in the database
-        # For now, we are assuming user is new if ID is 0 (for simplicity)
-        return user.id == 0
+    def _is_new_post(self, post: Post) -> bool:
+        return post.id == 0
+
+    def _is_new_comment(self, comment: Comment) -> bool:
+        return comment.id == 0
 
 
 def main() -> None:
-    user_mapper = UserMapper()
+    post_mapper = PostMapper()
+    comment_mapper = CommentMapper()
 
     registry = MappersRegistry()
-    registry.register(User, user_mapper)
+    registry.register(Post, post_mapper)
+    registry.register(Comment, comment_mapper)
 
     uow = UnitOfWork(registry=registry)
 
-    user_gateway = UserGateway(uow=uow, mapper=user_mapper)
+    post_gateway = PostGateway(
+        uow=uow, post_mapper=post_mapper, comment_mapper=comment_mapper
+    )
 
-    # Example of creating and saving a new user
-    new_user = User(id=0, name="New User")
-    user_gateway.save_user(new_user)
-    uow.commit()
+    # Example of creating and saving a new post
+    new_post = Post(id=0, title="New Post")
+    new_comment = Comment(id=0, text="New Comment", post_id=0)
+    new_post.add_comment(new_comment)
+    post_gateway.save_post(new_post)
 
-    # Example of updating an existing user
-    existing_user = user_gateway.get_user(user_id=1)
-    existing_user.add_post("New Post")
-    user_gateway.save_user(existing_user)
-    uow.commit()
+    # Example of updating an existing post
+    existing_post = post_gateway.get_post(post_id=1)
+    existing_post.add_comment(Comment(id=0, text="Another Comment", post_id=1))
+    post_gateway.save_post(existing_post)
 
-    # Example of deleting a user
-    user_to_delete = user_gateway.get_user(user_id=1)
-    user_gateway.delete_user(user_to_delete)
+    # Example of deleting a post
+    post_to_delete = post_gateway.get_post(post_id=1)
+    post_gateway.delete_post(post_to_delete)
     uow.commit()
 
 
